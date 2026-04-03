@@ -1,6 +1,6 @@
 const { spawn } = require("child_process");
 
-exports.runCommand = (tool, args = [], timeout = 60000) => {
+exports.runCommand = (tool, args = [], timeout = 120000) => { //2 min timer (for testing)
   return new Promise((resolve, reject) => {
     const process = spawn(tool, args);
 

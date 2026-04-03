@@ -1,4 +1,3 @@
-// src/components/VulnerabilitiesTable.jsx
 import React from "react";
 
 const severityColor = (severity) => {
@@ -16,7 +15,6 @@ const severityColor = (severity) => {
   }
 };
 
-// ✅ Capitalize helper
 const capitalize = (str) => {
   if (!str) return "";
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
@@ -34,6 +32,16 @@ const tdStyle = {
 };
 
 export default function VulnerabilitiesTable({ vulnerabilities }) {
+  const safeVulns = Array.isArray(vulnerabilities) ? vulnerabilities : [];
+
+  if (!vulnerabilities) {
+    return <div style={{ padding: "1rem" }}>Loading vulnerabilities...</div>;
+  }
+
+  if (safeVulns.length === 0) {
+    return <div style={{ padding: "1rem" }}>No vulnerabilities found.</div>;
+  }
+
   return (
     <div style={{ padding: "1rem", marginTop: "2rem" }}>
       <h2>Vulnerabilities</h2>
@@ -62,17 +70,16 @@ export default function VulnerabilitiesTable({ vulnerabilities }) {
         </thead>
 
         <tbody>
-          {vulnerabilities.map((vuln, idx) => (
+          {safeVulns.map((vuln, idx) => (
             <tr
-              key={vuln.id}
+              key={vuln.id || idx}
               style={{
                 backgroundColor:
                   idx % 2 === 0 ? "#1f1f2e" : "#232438",
-                transition: "0.2s",
               }}
             >
-              <td style={tdStyle}>{vuln.target_ip}</td>
-              <td style={tdStyle}>{vuln.vuln_name}</td>
+              <td style={tdStyle}>{vuln.target_ip || "N/A"}</td>
+              <td style={tdStyle}>{vuln.vuln_name || "N/A"}</td>
 
               <td
                 style={{
@@ -81,10 +88,10 @@ export default function VulnerabilitiesTable({ vulnerabilities }) {
                   fontWeight: "bold",
                 }}
               >
-                {capitalize(vuln.severity)}
+                {capitalize(vuln.severity) || "N/A"}
               </td>
 
-              <td style={tdStyle}>{vuln.description}</td>
+              <td style={tdStyle}>{vuln.description || "N/A"}</td>
 
               <td style={tdStyle}>
                 {vuln.scan_date

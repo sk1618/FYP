@@ -1,5 +1,5 @@
 // src/App.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import SummaryCards from "./components/SummaryCards";
 import AlertsTable from "./components/AlertsTable";
@@ -11,58 +11,55 @@ function App() {
   const [alerts, setAlerts] = useState([]);
   const [vulnerabilities, setVulnerabilities] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+
+  const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
   // ================= FETCH DATA =================
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setRefreshing(true);
+      setError(null);
 
-      const alertsRes = await axios.get(
-        `${import.meta.env.VITE_API_BASE_URL}/api/alerts`
-      );
+      if (!API_BASE) {
+        throw new Error("VITE_API_BASE_URL is not defined");
+      }
 
-      const vulnsRes = await axios.get(
-        `${import.meta.env.VITE_API_BASE_URL}/api/vulnerabilities`
-      );
+      const [alertsRes, vulnsRes] = await Promise.all([
+        axios.get(`${API_BASE}/api/alerts`),
+        axios.get(`${API_BASE}/api/vulnerabilities`)
+      ]);
 
-      setAlerts(alertsRes.data.data);
-      setVulnerabilities(vulnsRes.data.data);
+      const alertsData = alertsRes?.data?.data || [];
+      const vulnsData = vulnsRes?.data?.data || [];
+
+      setAlerts(alertsData);
+      setVulnerabilities(vulnsData);
+
     } catch (err) {
       console.error("Fetch error:", err);
+      setError("Failed to fetch data from backend.");
     } finally {
       setRefreshing(false);
     }
-  };
+  }, [API_BASE]);
 
   // Fetch once on load
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   // ================= SEVERITY COUNTS =================
-  const alertsHigh = alerts.filter(
-    (a) => a.severity?.toLowerCase() === "high"
-  ).length;
+  const countBySeverity = (arr, level) =>
+    arr.filter((item) => item.severity?.toLowerCase() === level).length;
 
-  const alertsMedium = alerts.filter(
-    (a) => a.severity?.toLowerCase() === "medium"
-  ).length;
+  const alertsHigh = countBySeverity(alerts, "high");
+  const alertsMedium = countBySeverity(alerts, "medium");
+  const alertsLow = countBySeverity(alerts, "low");
 
-  const alertsLow = alerts.filter(
-    (a) => a.severity?.toLowerCase() === "low"
-  ).length;
-
-  const vulnsHigh = vulnerabilities.filter(
-    (v) => v.severity?.toLowerCase() === "high"
-  ).length;
-
-  const vulnsMedium = vulnerabilities.filter(
-    (v) => v.severity?.toLowerCase() === "medium"
-  ).length;
-
-  const vulnsLow = vulnerabilities.filter(
-    (v) => v.severity?.toLowerCase() === "low"
-  ).length;
+  const vulnsHigh = countBySeverity(vulnerabilities, "high");
+  const vulnsMedium = countBySeverity(vulnerabilities, "medium");
+  const vulnsLow = countBySeverity(vulnerabilities, "low");
 
   // ================= GLOBAL STYLING =================
   useEffect(() => {
@@ -81,7 +78,7 @@ function App() {
         fontFamily: "Arial, sans-serif",
       }}
     >
-      {/* ================= HEADER ================= */}
+      {/* HEADER */}
       <header
         style={{
           backgroundColor: "#1a1c2b",
@@ -95,7 +92,7 @@ function App() {
         Cybersecurity Monitoring Dashboard
       </header>
 
-      {/* ================= MAIN CONTENT ================= */}
+      {/* MAIN */}
       <main
         style={{
           flex: 1,
@@ -105,7 +102,7 @@ function App() {
           width: "100%",
         }}
       >
-        {/* ================= REFRESH STATUS ================= */}
+        {/* REFRESH STATUS */}
         {refreshing && (
           <div
             style={{
@@ -119,7 +116,21 @@ function App() {
           </div>
         )}
 
-        {/* ================= SUMMARY ================= */}
+        {/* ERROR */}
+        {error && (
+          <div
+            style={{
+              textAlign: "center",
+              marginBottom: "1rem",
+              color: "red",
+              fontWeight: "bold",
+            }}
+          >
+            {error}
+          </div>
+        )}
+
+        {/* SUMMARY */}
         <SummaryCards
           alertsLow={alertsLow}
           alertsMedium={alertsMedium}
@@ -129,17 +140,17 @@ function App() {
           vulnsHigh={vulnsHigh}
         />
 
-        {/* ================= TOOL RUNNER ================= */}
+        {/* TOOL RUNNER */}
         <ToolRunner
           onToolRun={fetchData}
           onSuccess={() => alert("Scan completed successfully ✅")}
         />
 
-        {/* ================= PCAP ANALYZER ================= */}
+        {/* PCAP ANALYZER */}
         <PcapAnalyzer />
 
-        {/* ================= TABLES ================= */}
-        <AlertsTable alerts={alerts} />
+        {/* TABLES */}
+        <AlertsTable alerts={alerts} onRefresh={fetchData} />
         <VulnerabilitiesTable vulnerabilities={vulnerabilities} />
       </main>
     </div>
