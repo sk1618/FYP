@@ -1,160 +1,139 @@
 // src/App.jsx
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import axios from "axios";
-import SummaryCards from "./components/SummaryCards";
-import AlertsTable from "./components/AlertsTable";
+import SummaryCards         from "./components/SummaryCards";
+import AlertsTable          from "./components/AlertsTable";
 import VulnerabilitiesTable from "./components/VulnerabilitiesTable";
-import ToolRunner from "./components/ToolRunner";
-import PcapAnalyzer from "./components/PcapAnalyzer";
+import ToolRunner           from "./components/ToolRunner";
+import PcapAnalyzer         from "./components/PcapAnalyzer";
 
-function App() {
-  const [alerts, setAlerts] = useState([]);
+const API_BASE        = import.meta.env.VITE_API_BASE_URL;
+const REFRESH_INTERVAL = 30; // seconds
+
+const countBySeverity = (arr, level) =>
+  arr.filter((item) => item.severity?.toLowerCase() === level).length;
+
+function formatTime(date) {
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
+export default function App() {
+  const [alerts,          setAlerts]          = useState([]);
   const [vulnerabilities, setVulnerabilities] = useState([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState(null);
+  const [refreshing,      setRefreshing]      = useState(false);
+  const [error,           setError]           = useState(null);
+  const [lastUpdated,     setLastUpdated]      = useState(null);
 
-  const API_BASE = import.meta.env.VITE_API_BASE_URL;
+  // Auto-refresh state
+  const [autoRefresh,  setAutoRefresh]  = useState(false);
+  const [countdown,    setCountdown]    = useState(REFRESH_INTERVAL);
+  const intervalRef    = useRef(null);
+  const countdownRef   = useRef(null);
 
-  // ================= FETCH DATA =================
   const fetchData = useCallback(async () => {
+    if (!API_BASE) { setError("VITE_API_BASE_URL is not configured."); return; }
+    setRefreshing(true);
+    setError(null);
     try {
-      setRefreshing(true);
-      setError(null);
-
-      if (!API_BASE) {
-        throw new Error("VITE_API_BASE_URL is not defined");
-      }
-
       const [alertsRes, vulnsRes] = await Promise.all([
         axios.get(`${API_BASE}/api/alerts`),
-        axios.get(`${API_BASE}/api/vulnerabilities`)
+        axios.get(`${API_BASE}/api/vulnerabilities`),
       ]);
-
-      const alertsData = alertsRes?.data?.data || [];
-      const vulnsData = vulnsRes?.data?.data || [];
-
-      setAlerts(alertsData);
-      setVulnerabilities(vulnsData);
-
+      setAlerts(alertsRes.data?.data ?? []);
+      setVulnerabilities(vulnsRes.data?.data ?? []);
+      setLastUpdated(new Date());
     } catch (err) {
-      console.error("Fetch error:", err);
-      setError("Failed to fetch data from backend.");
+      console.error("[App] Fetch error:", err);
+      setError("Could not reach the backend. Is it running?");
     } finally {
       setRefreshing(false);
     }
-  }, [API_BASE]);
-
-  // Fetch once on load
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  // ================= SEVERITY COUNTS =================
-  const countBySeverity = (arr, level) =>
-    arr.filter((item) => item.severity?.toLowerCase() === level).length;
-
-  const alertsHigh = countBySeverity(alerts, "high");
-  const alertsMedium = countBySeverity(alerts, "medium");
-  const alertsLow = countBySeverity(alerts, "low");
-
-  const vulnsHigh = countBySeverity(vulnerabilities, "high");
-  const vulnsMedium = countBySeverity(vulnerabilities, "medium");
-  const vulnsLow = countBySeverity(vulnerabilities, "low");
-
-  // ================= GLOBAL STYLING =================
-  useEffect(() => {
-    document.body.style.margin = "0";
-    document.body.style.backgroundColor = "#0f111a";
   }, []);
 
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Auto-refresh: fetch every REFRESH_INTERVAL seconds + show countdown
+  useEffect(() => {
+    if (autoRefresh) {
+      setCountdown(REFRESH_INTERVAL);
+
+      intervalRef.current = setInterval(() => {
+        fetchData();
+        setCountdown(REFRESH_INTERVAL);
+      }, REFRESH_INTERVAL * 1000);
+
+      countdownRef.current = setInterval(() => {
+        setCountdown((c) => (c > 0 ? c - 1 : REFRESH_INTERVAL));
+      }, 1000);
+    } else {
+      clearInterval(intervalRef.current);
+      clearInterval(countdownRef.current);
+    }
+    return () => {
+      clearInterval(intervalRef.current);
+      clearInterval(countdownRef.current);
+    };
+  }, [autoRefresh, fetchData]);
+
+  const counts = {
+    alertsHigh:   countBySeverity(alerts,          "high"),
+    alertsMedium: countBySeverity(alerts,          "medium"),
+    alertsLow:    countBySeverity(alerts,          "low"),
+    vulnsHigh:    countBySeverity(vulnerabilities, "high"),
+    vulnsMedium:  countBySeverity(vulnerabilities, "medium"),
+    vulnsLow:     countBySeverity(vulnerabilities, "low"),
+  };
+
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        backgroundColor: "#0f111a",
-        color: "#fff",
-        display: "flex",
-        flexDirection: "column",
-        fontFamily: "Arial, sans-serif",
-      }}
-    >
-      {/* HEADER */}
-      <header
-        style={{
-          backgroundColor: "#1a1c2b",
-          padding: "1rem 2rem",
-          textAlign: "center",
-          fontSize: "1.8rem",
-          fontWeight: "bold",
-          boxShadow: "0 2px 4px rgba(0,0,0,0.5)",
-        }}
-      >
-        Cybersecurity Monitoring Dashboard
+    <div className="dashboard">
+      <header className="header">
+        <div className="header-brand">
+          <div className="header-brand-icon">🛡️</div>
+          <div>
+            <div className="header-title">CyberSec Monitor</div>
+            <div className="header-sub">Security Operations Dashboard</div>
+          </div>
+        </div>
+
+        <div className="header-right">
+          {lastUpdated && (
+            <span className="last-updated">Updated {formatTime(lastUpdated)}</span>
+          )}
+
+          {/* Auto-refresh toggle */}
+          <button
+            className={`btn-refresh ${autoRefresh ? "btn-refresh--active" : ""}`}
+            onClick={() => setAutoRefresh((v) => !v)}
+            title={autoRefresh ? "Click to stop auto-refresh" : "Click to enable auto-refresh"}
+          >
+            {autoRefresh ? `⏱ ${countdown}s` : "⏱ Auto"}
+          </button>
+
+          <div className="live-badge">
+            <span className="live-dot" />
+            Live
+          </div>
+
+          <button className="btn-refresh" onClick={fetchData} disabled={refreshing}>
+            {refreshing ? <span className="spinner" /> : "↻"}
+            {refreshing ? "Refreshing" : "Refresh"}
+          </button>
+        </div>
       </header>
 
-      {/* MAIN */}
-      <main
-        style={{
-          flex: 1,
-          padding: "2rem",
-          maxWidth: "1200px",
-          margin: "0 auto",
-          width: "100%",
-        }}
-      >
-        {/* REFRESH STATUS */}
-        {refreshing && (
-          <div
-            style={{
-              textAlign: "center",
-              marginBottom: "1rem",
-              color: "#00ffcc",
-              fontWeight: "bold",
-            }}
-          >
-            Refreshing dashboard...
-          </div>
-        )}
+      <main className="main">
+        {error && <div className="error-banner">⚠ {error}</div>}
 
-        {/* ERROR */}
-        {error && (
-          <div
-            style={{
-              textAlign: "center",
-              marginBottom: "1rem",
-              color: "red",
-              fontWeight: "bold",
-            }}
-          >
-            {error}
-          </div>
-        )}
+        <SummaryCards counts={counts} />
 
-        {/* SUMMARY */}
-        <SummaryCards
-          alertsLow={alertsLow}
-          alertsMedium={alertsMedium}
-          alertsHigh={alertsHigh}
-          vulnsLow={vulnsLow}
-          vulnsMedium={vulnsMedium}
-          vulnsHigh={vulnsHigh}
-        />
+        <div className="panels-row">
+          <ToolRunner onToolRun={fetchData} />
+          <PcapAnalyzer />
+        </div>
 
-        {/* TOOL RUNNER */}
-        <ToolRunner
-          onToolRun={fetchData}
-          onSuccess={() => alert("Scan completed successfully ✅")}
-        />
-
-        {/* PCAP ANALYZER */}
-        <PcapAnalyzer />
-
-        {/* TABLES */}
         <AlertsTable alerts={alerts} onRefresh={fetchData} />
-        <VulnerabilitiesTable vulnerabilities={vulnerabilities} />
+        <VulnerabilitiesTable vulnerabilities={vulnerabilities} onRefresh={fetchData} />
       </main>
     </div>
   );
 }
-
-export default App;

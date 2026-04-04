@@ -1,145 +1,86 @@
 // routes/alerts.js
+// Full async/await using the mysql2 promise pool (db.execute).
+// Vulnerability auto-creation is delegated to utils/vuln.js so the logic
+// isn't duplicated across this file and toolController.js.
 const express = require("express");
-const router = express.Router();
-const db = require("../db");
-const { success, error } = require("../utils/response");
+const router  = express.Router();
+const db      = require("../db");
+const { success, error }         = require("../utils/response");
+const { maybeCreateVulnerability } = require("../utils/vuln");
 
-// ================= HELPER: process alert → vulnerability =================
-function processAlertToVulnerability(alertId, alertData) {
-  const desc = (alertData.description || "").toLowerCase();
-  const activity = (alertData.activity_type || "").toLowerCase();
-
-  // Only create vulnerabilities for actual findings
-  if (desc.includes("vulnerable") || desc.includes("cve")) {
-    const title = "Potential Vulnerability Detected";
-    const severity = "High";
-
-    const insertQuery = `
-      INSERT INTO vulnerabilities
-      (target_ip, vuln_name, description, severity, source_alert_id)
-      VALUES (?, ?, ?, ?, ?)
-    `;
-
-    db.query(
-      insertQuery,
-      [
-        alertData.destination_ip,
-        title,
-        alertData.description,
-        severity,
-        alertId,
-      ],
-      (err) => {
-        if (err) {
-          console.error("Error inserting vulnerability:", err);
-        }
-      }
-    );
+// ── GET all alerts (newest first) ─────────────────────────────────────────────
+router.get("/", async (_req, res, next) => {
+  try {
+    const [rows] = await db.execute(`
+      SELECT id, source_ip, destination_ip, activity_type,
+             severity, description, timestamp
+      FROM   alerts
+      ORDER  BY timestamp DESC
+    `);
+    success(res, rows, "Alerts fetched successfully");
+  } catch (err) {
+    next(err);
   }
-}
-
-// ================= GET ALL ALERTS =================
-router.get("/", (req, res) => {
-  const query = `
-    SELECT id, source_ip, destination_ip, activity_type, severity, description, timestamp
-    FROM alerts
-    ORDER BY timestamp DESC
-  `;
-
-  db.query(query, (err, results) => {
-    if (err) {
-      console.error("Error fetching alerts:", err);
-      return error(res, "Database error", 500);
-    }
-
-    return success(res, results, "Alerts fetched successfully");
-  });
 });
 
-// ================= GET SINGLE ALERT =================
-router.get("/:id", (req, res) => {
-  const query = `
-    SELECT id, source_ip, destination_ip, activity_type, severity, description, timestamp
-    FROM alerts
-    WHERE id = ?
-  `;
-
-  db.query(query, [req.params.id], (err, results) => {
-    if (err) {
-      console.error("Error fetching alert:", err);
-      return error(res, "Database error", 500);
-    }
-
-    if (results.length === 0) {
-      return error(res, "Alert not found", 404);
-    }
-
-    return success(res, results[0], "Alert fetched successfully");
-  });
+// ── GET single alert ──────────────────────────────────────────────────────────
+router.get("/:id", async (req, res, next) => {
+  try {
+    const [rows] = await db.execute(
+      `SELECT id, source_ip, destination_ip, activity_type,
+              severity, description, timestamp
+       FROM   alerts
+       WHERE  id = ?`,
+      [req.params.id]
+    );
+    if (!rows.length) return error(res, "Alert not found", 404);
+    success(res, rows[0], "Alert fetched successfully");
+  } catch (err) {
+    next(err);
+  }
 });
 
-// ================= CREATE NEW ALERT =================
-router.post("/", (req, res) => {
-  const { source_ip, destination_ip, activity_type, severity, description } =
-    req.body;
+// ── POST create alert ─────────────────────────────────────────────────────────
+router.post("/", async (req, res, next) => {
+  const { source_ip, destination_ip, activity_type, severity, description } = req.body;
 
-  const query = `
-    INSERT INTO alerts 
-    (source_ip, destination_ip, activity_type, severity, description)
-    VALUES (?, ?, ?, ?, ?)
-  `;
+  try {
+    const [result] = await db.execute(
+      `INSERT INTO alerts
+         (source_ip, destination_ip, activity_type, severity, description)
+       VALUES (?, ?, ?, ?, ?)`,
+      [source_ip, destination_ip, activity_type, severity, description]
+    );
 
-  db.query(
-    query,
-    [source_ip, destination_ip, activity_type, severity, description],
-    (err, result) => {
-      if (err) {
-        console.error("Error inserting alert:", err);
-        return error(res, "Database error", 500);
-      }
+    // Fire-and-forget: don't block the response if vuln creation fails.
+    maybeCreateVulnerability(result.insertId, {
+      source_ip, destination_ip, activity_type, severity, description,
+    }).catch((err) => console.error("[alerts] Auto-vuln creation failed:", err.message));
 
-      const alertId = result.insertId;
-
-      // ✅ Only process actual vulnerabilities
-      processAlertToVulnerability(alertId, {
-        source_ip,
-        destination_ip,
-        activity_type,
-        severity,
-        description,
-      });
-
-      return success(res, { alertId }, "Alert created successfully", 201);
-    }
-  );
+    success(res, { alertId: result.insertId }, "Alert created successfully", 201);
+  } catch (err) {
+    next(err);
+  }
 });
 
-// ================= DELETE SINGLE ALERT =================
-router.delete("/:id", (req, res) => {
-  const query = "DELETE FROM alerts WHERE id = ?";
-
-  db.query(query, [req.params.id], (err, result) => {
-    if (err) {
-      console.error("Error deleting alert:", err);
-      return error(res, "Database error", 500);
-    }
-
-    return success(res, null, "Alert deleted successfully");
-  });
+// ── DELETE single alert ───────────────────────────────────────────────────────
+router.delete("/:id", async (req, res, next) => {
+  try {
+    await db.execute("DELETE FROM alerts WHERE id = ?", [req.params.id]);
+    success(res, null, "Alert deleted successfully");
+  } catch (err) {
+    next(err);
+  }
 });
 
-// ================= DELETE ALL ALERTS =================
-router.delete("/", (req, res) => {
-  const query = "DELETE FROM alerts";
-
-  db.query(query, (err, result) => {
-    if (err) {
-      console.error("Error deleting all alerts:", err);
-      return error(res, "Database error", 500);
-    }
-
-    return success(res, null, "All alerts deleted successfully");
-  });
+// ── DELETE all alerts ─────────────────────────────────────────────────────────
+router.delete("/", async (_req, res, next) => {
+  try {
+    await db.execute("DELETE FROM alerts");
+    success(res, null, "All alerts deleted successfully");
+  } catch (err) {
+    next(err);
+  }
 });
 
 module.exports = router;

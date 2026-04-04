@@ -1,90 +1,106 @@
+// components/PcapAnalyzer.jsx
+// Uploads a PCAP file to the backend AI endpoint and renders the result.
+// Uses VITE_API_BASE_URL — no hardcoded localhost.
 import React, { useState } from "react";
 import axios from "axios";
 
-function PcapAnalyzer() {
-  const [file, setFile] = useState(null);
-  const [result, setResult] = useState(null);
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
+
+export default function PcapAnalyzer() {
+  const [file,    setFile]    = useState(null);
+  const [result,  setResult]  = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState(null);
+
+  const handleFileChange = (e) => {
+    setFile(e.target.files[0] || null);
+    setResult(null);
+    setError(null);
+  };
 
   const handleAnalyze = async () => {
     if (!file) {
-      alert("Please select a PCAP file first.");
+      setError("Please select a .pcap file first.");
       return;
     }
 
     const formData = new FormData();
     formData.append("pcap", file);
 
+    setLoading(true);
+    setError(null);
+    setResult(null);
+
     try {
-      setLoading(true);
-
-      const res = await axios.post(
-        "http://localhost:3001/api/ai/analyze-pcap",
-        formData
-      );
-
+      const res = await axios.post(`${API_BASE}/api/ai/analyze-pcap`, formData);
       setResult(res.data);
-    } catch (error) {
-      console.error("PCAP analysis error:", error);
-      alert("Failed to analyze PCAP.");
+    } catch (err) {
+      console.error("[PcapAnalyzer] Error:", err);
+      setError(err.response?.data?.error || "Analysis failed. Check console for details.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-  <>
-    <h2 style={{ marginBottom: "1rem" }}>AI PCAP Attack Analyzer</h2>
+    <div className="panel">
+      <div className="panel-title">🔬 AI PCAP Analyzer</div>
 
-    <div
-      style={{
-        backgroundColor: "#1a1c2b",
-        padding: "1.5rem",
-        borderRadius: "10px",
-        marginBottom: "2rem",
-      }}
-    >
-      <input
-        type="file"
-        accept=".pcap"
-        onChange={(e) => setFile(e.target.files[0])}
-      />
+      {/* File picker + analyze button */}
+      <div className="file-row">
+        <label className="file-label">
+          📂 {file ? "Change file" : "Choose .pcap file"}
+          <input type="file" accept=".pcap" onChange={handleFileChange} />
+        </label>
+
+        {file && (
+          <span className="file-name" title={file.name}>{file.name}</span>
+        )}
+      </div>
 
       <button
+        className="btn btn--primary"
         onClick={handleAnalyze}
-        style={{
-          marginLeft: "1rem",
-          padding: "0.5rem 1rem",
-          backgroundColor: "#007bff",
-          color: "white",
-          border: "none",
-          borderRadius: "6px",
-          cursor: "pointer",
-        }}
+        disabled={loading || !file}
       >
-        Analyze
+        {loading ? <><span className="spinner" /> Analyzing…</> : "Analyze"}
       </button>
 
-      {loading && <p>Analyzing PCAP...</p>}
+      {/* Inline error */}
+      {error && (
+        <div className="error-banner" style={{ marginTop: "0.75rem" }}>
+          ⚠ {error}
+        </div>
+      )}
 
+      {/* Results */}
       {result && (
-        <div style={{ marginTop: "1rem" }}>
-          <h3>Attack Summary</h3>
-          <pre>{JSON.stringify(result.summary, null, 2)}</pre>
+        <div className="pcap-result">
+          {/* Summary */}
+          <div className="pcap-result-section">
+            <div className="pcap-section-title">Attack Summary</div>
+            <pre className="pcap-pre">{JSON.stringify(result.summary, null, 2)}</pre>
+          </div>
 
-          <h3>Detailed Attack Report</h3>
-          <ul>
-            {result.report.map((attack, index) => (
-              <li key={index}>
-                {attack.src_ip} → {attack.attack_type}
-              </li>
-            ))}
-          </ul>
+          {/* Per-packet report */}
+          {Array.isArray(result.report) && result.report.length > 0 && (
+            <div className="pcap-result-section">
+              <div className="pcap-section-title">
+                Detected Events ({result.report.length})
+              </div>
+              <ul className="pcap-list">
+                {result.report.map((item, idx) => (
+                  <li key={idx} className="pcap-item">
+                    <span className="pcap-ip">{item.src_ip}</span>
+                    <span className="pcap-arrow">→</span>
+                    <span className="pcap-type">{item.attack_type}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
     </div>
-  </>
-);
+  );
 }
-
-export default PcapAnalyzer;

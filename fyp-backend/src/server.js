@@ -1,19 +1,20 @@
+// src/server.js
+// Entry point. Loads env vars before anything else so db.js and app.js
+// receive them at require-time.
 require("dotenv").config();
 
-const app = require("./app");
-
+const app  = require("./app");
 const PORT = process.env.PORT || 3001;
 
-// ================= Start Server =================
 const server = app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`[Server] Running on port ${PORT}`);
 });
 
-// ================= Graceful Shutdown =================
+// Graceful shutdown — lets in-flight requests finish before the process exits.
 process.on("SIGINT", () => {
-  console.log("Shutting down server...");
+  console.log("[Server] Shutting down...");
   server.close(() => {
-    console.log("Server closed.");
+    console.log("[Server] Closed.");
     process.exit(0);
   });
 });
