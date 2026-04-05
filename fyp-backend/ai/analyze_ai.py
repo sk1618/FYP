@@ -3,6 +3,8 @@ from scapy.layers.inet import IP, TCP, UDP, ICMP
 import pandas as pd
 import joblib
 import json
+import matplotlib
+matplotlib.use("Agg")  # Non-interactive backend — required for headless servers (no display needed)
 import matplotlib.pyplot as plt
 import sys
 import os

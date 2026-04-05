@@ -1,6 +1,7 @@
 // components/ToolRunner.jsx
 // Executes Nmap or Metasploit against a target IP via the backend API.
 // Uses VITE_API_BASE_URL from the .env — no hardcoded localhost.
+// Keeps a log of the last 5 scans for visibility.
 import React, { useState, useRef } from "react";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
@@ -19,10 +20,15 @@ function useToast() {
   return { toast, show };
 }
 
+function formatTime(date) {
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
 export default function ToolRunner({ onToolRun }) {
   const [tool,    setTool]    = useState("");
   const [target,  setTarget]  = useState("");
   const [loading, setLoading] = useState(false);
+  const [history, setHistory] = useState([]);
   const { toast, show }       = useToast();
 
   const handleRun = async () => {
@@ -44,7 +50,15 @@ export default function ToolRunner({ onToolRun }) {
       const data = await res.json();
 
       if (data.success) {
-        show(`Scan completed — ${data.data?.length ?? 0} alert(s) generated.`, "success");
+        const count = data.data?.length ?? 0;
+        show(`Scan completed — ${count} alert(s) generated.`, "success");
+
+        // Prepend to scan history, keep last 5
+        setHistory((prev) => [
+          { tool: trimTool, target: trimTarget, count, ts: new Date() },
+          ...prev,
+        ].slice(0, 5));
+
         setTool("");
         setTarget("");
         onToolRun?.();
@@ -104,6 +118,23 @@ export default function ToolRunner({ onToolRun }) {
       {toast && (
         <div className={`toast toast--${toast.type}`}>
           {toast.type === "success" ? "✓" : "✕"} {toast.message}
+        </div>
+      )}
+
+      {/* Scan history */}
+      {history.length > 0 && (
+        <div className="scan-history">
+          <div className="scan-history-title">Recent Scans</div>
+          <div className="scan-history-list">
+            {history.map((h, i) => (
+              <div key={i} className="scan-history-item">
+                <span className="scan-history-tool">{h.tool}</span>
+                <span className="scan-history-target">{h.target}</span>
+                <span className="scan-history-count">{h.count} alert{h.count !== 1 ? "s" : ""}</span>
+                <span className="scan-history-time">{formatTime(h.ts)}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

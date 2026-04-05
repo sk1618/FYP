@@ -1,9 +1,10 @@
 // components/AlertsTable.jsx
-// Features: per-row delete, filter by severity/IP/keyword, CSV export, delete-all modal.
-import React, { useState, useMemo } from "react";
+// Features: per-row delete, delete-all modal, filter, CSV export, pagination, loading skeleton.
+import React, { useState, useMemo, useEffect } from "react";
 import axios from "axios";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
+const API_BASE  = import.meta.env.VITE_API_BASE_URL;
+const PAGE_SIZE = 25;
 
 function severityClass(severity) {
   switch (severity?.toLowerCase()) {
@@ -35,9 +36,10 @@ function exportCSV(data) {
     return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s}"` : s;
   };
 
-  const header = cols.map((c) => c.label).join(",");
-  const rows   = data.map((row) => cols.map((c) => escape(row[c.key])).join(","));
-  const csv    = [header, ...rows].join("\n");
+  const csv = [
+    cols.map((c) => c.label).join(","),
+    ...data.map((row) => cols.map((c) => escape(row[c.key])).join(",")),
+  ].join("\n");
 
   const blob = new Blob([csv], { type: "text/csv" });
   const url  = URL.createObjectURL(blob);
@@ -68,30 +70,35 @@ function ConfirmModal({ onConfirm, onCancel }) {
 }
 
 // ── AlertsTable ───────────────────────────────────────────────────────────────
-export default function AlertsTable({ alerts, onRefresh }) {
+export default function AlertsTable({ alerts, onRefresh, loading }) {
   const [deleting,    setDeleting]    = useState(false);
   const [deletingId,  setDeletingId]  = useState(null);
   const [showConfirm, setShowConfirm] = useState(false);
-
-  // Filter state
-  const [search,   setSearch]   = useState("");
-  const [severity, setSeverity] = useState("");
+  const [search,      setSearch]      = useState("");
+  const [severity,    setSeverity]    = useState("");
+  const [page,        setPage]        = useState(1);
 
   const safeAlerts = Array.isArray(alerts) ? alerts : [];
 
-  // Apply filters client-side
-  const filtered = useMemo(() => {
-    return safeAlerts.filter((a) => {
-      const matchSeverity = !severity || a.severity?.toLowerCase() === severity;
-      const keyword       = search.toLowerCase();
-      const matchSearch   = !search || [
-        a.source_ip, a.destination_ip, a.activity_type, a.description,
-      ].some((v) => v?.toLowerCase().includes(keyword));
-      return matchSeverity && matchSearch;
-    });
-  }, [safeAlerts, search, severity]);
+  const filtered = useMemo(() =>
+    safeAlerts.filter((a) => {
+      const matchSev    = !severity || a.severity?.toLowerCase() === severity;
+      const kw          = search.toLowerCase();
+      const matchSearch = !search || [a.source_ip, a.destination_ip, a.activity_type, a.description]
+        .some((v) => v?.toLowerCase().includes(kw));
+      return matchSev && matchSearch;
+    }), [safeAlerts, search, severity]
+  );
 
-  // Delete single row
+  // Reset to page 1 whenever filters change
+  useEffect(() => { setPage(1); }, [search, severity]);
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated  = useMemo(
+    () => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [filtered, page]
+  );
+
   const handleDeleteOne = async (id) => {
     setDeletingId(id);
     try {
@@ -104,7 +111,6 @@ export default function AlertsTable({ alerts, onRefresh }) {
     }
   };
 
-  // Delete all
   const handleDeleteAll = async () => {
     setShowConfirm(false);
     setDeleting(true);
@@ -131,7 +137,6 @@ export default function AlertsTable({ alerts, onRefresh }) {
             <span className="table-toolbar-title">Alerts</span>
             <span className="count-pill">{filtered.length} / {safeAlerts.length}</span>
           </div>
-
           <div className="toolbar-actions">
             {safeAlerts.length > 0 && (
               <button className="btn btn--ghost btn--sm" onClick={() => exportCSV(filtered)}>
@@ -160,11 +165,7 @@ export default function AlertsTable({ alerts, onRefresh }) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
-            <select
-              className="filter-select"
-              value={severity}
-              onChange={(e) => setSeverity(e.target.value)}
-            >
+            <select className="filter-select" value={severity} onChange={(e) => setSeverity(e.target.value)}>
               <option value="">All severities</option>
               <option value="high">High</option>
               <option value="medium">Medium</option>
@@ -178,8 +179,28 @@ export default function AlertsTable({ alerts, onRefresh }) {
           </div>
         )}
 
-        {/* Empty state */}
-        {filtered.length === 0 ? (
+        {/* Loading skeleton */}
+        {loading && safeAlerts.length === 0 ? (
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Source IP</th><th>Destination IP</th><th>Activity</th>
+                  <th>Severity</th><th>Description</th><th>Timestamp</th><th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i}>
+                    {Array.from({ length: 7 }).map((_, j) => (
+                      <td key={j}><div className="skeleton-cell" style={{ width: j === 6 ? 24 : "80%" }} /></td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon">📭</div>
             <div className="empty-state-text">
@@ -187,49 +208,59 @@ export default function AlertsTable({ alerts, onRefresh }) {
             </div>
           </div>
         ) : (
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Source IP</th>
-                  <th>Destination IP</th>
-                  <th>Activity</th>
-                  <th>Severity</th>
-                  <th>Description</th>
-                  <th>Timestamp</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((alert, idx) => (
-                  <tr key={alert.id ?? idx}>
-                    <td className="td-ip">{alert.source_ip || "—"}</td>
-                    <td className="td-ip">{alert.destination_ip || "—"}</td>
-                    <td>{alert.activity_type || "—"}</td>
-                    <td>
-                      <span className={`badge ${severityClass(alert.severity)}`}>
-                        {alert.severity || "Unknown"}
-                      </span>
-                    </td>
-                    <td className="td-desc" title={alert.description}>
-                      {alert.description || "—"}
-                    </td>
-                    <td className="td-time">{formatDate(alert.timestamp)}</td>
-                    <td>
-                      <button
-                        className="btn-row-delete"
-                        onClick={() => handleDeleteOne(alert.id)}
-                        disabled={deletingId === alert.id}
-                        title="Delete this alert"
-                      >
-                        {deletingId === alert.id ? <span className="spinner" /> : "🗑"}
-                      </button>
-                    </td>
+          <>
+            <div className="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Source IP</th><th>Destination IP</th><th>Activity</th>
+                    <th>Severity</th><th>Description</th><th>Timestamp</th><th></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {paginated.map((alert, idx) => (
+                    <tr key={alert.id ?? idx}>
+                      <td className="td-ip">{alert.source_ip || "—"}</td>
+                      <td className="td-ip">{alert.destination_ip || "—"}</td>
+                      <td>{alert.activity_type || "—"}</td>
+                      <td>
+                        <span className={`badge ${severityClass(alert.severity)}`}>
+                          {alert.severity || "Unknown"}
+                        </span>
+                      </td>
+                      <td className="td-desc" title={alert.description}>{alert.description || "—"}</td>
+                      <td className="td-time">{formatDate(alert.timestamp)}</td>
+                      <td>
+                        <button
+                          className="btn-row-delete"
+                          onClick={() => handleDeleteOne(alert.id)}
+                          disabled={deletingId === alert.id}
+                          title="Delete this alert"
+                        >
+                          {deletingId === alert.id ? <span className="spinner" /> : "🗑"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="pagination">
+                <button className="btn btn--ghost btn--sm"
+                  onClick={() => setPage((p) => p - 1)} disabled={page === 1}>
+                  ← Prev
+                </button>
+                <span className="pagination-info">Page {page} of {totalPages}</span>
+                <button className="btn btn--ghost btn--sm"
+                  onClick={() => setPage((p) => p + 1)} disabled={page === totalPages}>
+                  Next →
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </>

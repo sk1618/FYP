@@ -2,6 +2,7 @@
 // dotenv is loaded in server.js before this module is required.
 const express = require("express");
 const cors    = require("cors");
+const path    = require("path");
 
 const alertsRoutes        = require("./routes/alerts");
 const vulnerabilitiesRoutes = require("./routes/vulnerabilities");
@@ -13,6 +14,9 @@ const app = express();
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use(cors());
 app.use(express.json());
+
+// ── Static assets — serves the AI output folder (chart images) ────────────────
+app.use("/ai-assets", express.static(path.join(__dirname, "../ai")));
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use("/api/alerts",          alertsRoutes);

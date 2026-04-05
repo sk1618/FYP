@@ -1,0 +1,10 @@
+# Claude Code tool config — not part of the project
+.claude/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temp uploads
+fyp-backend/uploads/*
+!fyp-backend/uploads/.gitkeep

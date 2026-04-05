@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import axios from "axios";
 import SummaryCards         from "./components/SummaryCards";
+import SeverityChart        from "./components/SeverityChart";
 import AlertsTable          from "./components/AlertsTable";
 import VulnerabilitiesTable from "./components/VulnerabilitiesTable";
 import ToolRunner           from "./components/ToolRunner";
@@ -126,13 +127,15 @@ export default function App() {
 
         <SummaryCards counts={counts} />
 
+        <SeverityChart alerts={alerts} />
+
         <div className="panels-row">
           <ToolRunner onToolRun={fetchData} />
           <PcapAnalyzer />
         </div>
 
-        <AlertsTable alerts={alerts} onRefresh={fetchData} />
-        <VulnerabilitiesTable vulnerabilities={vulnerabilities} onRefresh={fetchData} />
+        <AlertsTable alerts={alerts} onRefresh={fetchData} loading={refreshing} />
+        <VulnerabilitiesTable vulnerabilities={vulnerabilities} onRefresh={fetchData} loading={refreshing} />
       </main>
     </div>
   );

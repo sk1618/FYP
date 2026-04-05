@@ -9,6 +9,9 @@ const { maybeCreateVulnerability } = require("../utils/vuln");
 
 const ALLOWED_TOOLS = new Set(["nmap", "metasploit"]);
 
+// Accepts IPv4 addresses and simple hostnames only — no shell metacharacters.
+const SAFE_TARGET = /^[a-zA-Z0-9.\-]+$/;
+
 // Maps open TCP port numbers to human-readable service names.
 const PORT_SERVICE = {
   21:   "FTP",
@@ -146,6 +149,10 @@ exports.runTool = async (req, res) => {
 
   if (!ALLOWED_TOOLS.has(normalizedTool)) {
     return res.status(400).json({ success: false, message: `Tool "${tool}" is not allowed` });
+  }
+
+  if (!SAFE_TARGET.test(normalizedTarget)) {
+    return res.status(400).json({ success: false, message: "Invalid target — only IP addresses and hostnames are accepted" });
   }
 
   try {
