@@ -14,5 +14,5 @@ echo "Syncing frontend..."
 rsync -av --exclude='node_modules' --exclude='.env' \
   "$PROJECT/fyp-frontend/" "$VM:~/fyp-frontend/"
 
-echo "Done. Nodemon will auto-reload the backend."
+echo "Done. Restart the backend (node src/server.js) to pick up changes."
 echo "Refresh the browser for frontend changes."
