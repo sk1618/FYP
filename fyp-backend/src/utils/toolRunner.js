@@ -12,7 +12,7 @@ const { spawn } = require("child_process");
  * @param {string[]} args    - Argument list
  * @param {number}   timeout - Milliseconds before SIGKILL (default 2 min)
  */
-exports.runCommand = (cmd, args = [], timeout = 120_000) => {
+exports.runCommand = (cmd, args = [], timeout = 120_000, allowNonZero = false) => {
   return new Promise((resolve, reject) => {
     const proc = spawn(cmd, args);
 
@@ -38,8 +38,8 @@ exports.runCommand = (cmd, args = [], timeout = 120_000) => {
     proc.on("close", (code) => {
       clearTimeout(timer);
       if (timedOut) return;
-      if (code !== 0) return reject(new Error(stderr || `"${cmd}" exited with code ${code}`));
-      resolve(stdout);
+      if (code !== 0 && !allowNonZero) return reject(new Error(stderr || `"${cmd}" exited with code ${code}`));
+      resolve(stdout || stderr);
     });
   });
 };

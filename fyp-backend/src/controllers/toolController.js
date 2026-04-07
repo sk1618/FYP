@@ -4,10 +4,9 @@
 const db      = require("../db");
 const { runCommand }             = require("../utils/toolRunner");
 const { maybeCreateVulnerability } = require("../utils/vuln");
-
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const ALLOWED_TOOLS = new Set(["nmap", "metasploit"]);
+const ALLOWED_TOOLS = new Set(["nmap", "metasploit", "nikto"]);
 
 // Accepts IPv4 addresses and simple hostnames only — no shell metacharacters.
 const SAFE_TARGET = /^[a-zA-Z0-9.\-]+$/;
@@ -135,6 +134,79 @@ function parseMetasploitOutput(output, target, port) {
   return alerts;
 }
 
+/**
+ * Infers a human-readable category from a Nikto finding.
+ */
+function categorizeNiktoFinding(text) {
+  const l = text.toLowerCase();
+  if (l.includes("phpmyadmin"))                                          return "phpMyAdmin Exposed";
+  if (l.includes("phpinfo") || l.includes("php reveals"))               return "PHP Info Disclosure";
+  if (l.includes("xss") || l.includes("cross site tracing") || l.includes("xst")) return "XSS / Tracing Risk";
+  if (l.includes("sql"))                                                 return "SQL Injection Risk";
+  if (l.includes("outdated") || l.includes("end-of-life") || l.includes("eol"))   return "Outdated Software";
+  if (l.includes("x-frame") || l.includes("x-content") || l.includes("header is not") || l.includes("anti-clickjacking")) return "Missing Security Header";
+  if (l.includes("directory indexing") || l.includes("browsable"))      return "Exposed Directory";
+  if (l.includes("default file") || l.includes("apache default"))       return "Default File Found";
+  if (l.includes("mod_negotiation") || l.includes("multiviews"))        return "Apache Misconfiguration";
+  if (l.includes("http trace") || l.includes("trace method"))           return "Dangerous HTTP Method";
+  if (l.includes("inode") || l.includes("etag") || l.includes("x-powered-by") || l.includes("powered by")) return "Information Disclosure";
+  if (l.includes("wp-config") || l.includes("credentials"))             return "Credential File Exposed";
+  if (l.includes("brute force"))                                         return "Brute Force Risk";
+  if (l.includes("cve-") || l.includes("osvdb-"))                       return "Known Vulnerability";
+  return "Web Vulnerability";
+}
+
+/**
+ * Converts raw Nikto stdout into alert objects.
+ * Findings start with "+ " — header/footer lines are skipped.
+ * Severity is inferred from keywords, CVE/OSVDB refs appended to description.
+ */
+function parseNiktoOutput(output, target) {
+  const HIGH_KEYWORDS   = ["vulnerable", "inject", "xss", "sql", "rce", "exploit", "cve-", "trace", "phpmyadmin", "credentials", "wp-config"];
+  const MEDIUM_KEYWORDS = ["osvdb", "outdated", "misconfigur", "exposed", "default", "brute force", "mod_negotiation", "phpinfo", "php reveals", "inode", "etag"];
+
+  return output
+    .split("\n")
+    .filter((line) => {
+      if (!line.startsWith("+ ")) return false;
+      const l = line.toLowerCase();
+      return !l.startsWith("+ target") &&
+             !l.startsWith("+ start") &&
+             !l.startsWith("+ end") &&
+             !l.startsWith("+ server:") &&
+             !l.includes("requests:") &&
+             !l.includes("host(s) tested");
+    })
+    .map((line) => {
+      // Strip path prefix (e.g. "/phpMyAdmin/ChangeLog: ") and "See: http..." references
+      const raw     = line.replace(/^\+\s*/, "").trim();
+      const noPath  = raw.replace(/^\/[^:]*:\s*/, "").trim();
+      const noSee   = noPath.replace(/\s*See:\s*https?:\/\/\S+/gi, "").trim();
+
+      // Extract CVE and OSVDB references to append as clean tags
+      const cveRefs  = [...new Set((raw.match(/CVE-\d{4}-\d+/gi)  || []).map((r) => r.toUpperCase()))];
+      const osvdbRefs= [...new Set((raw.match(/OSVDB-\d+/gi)       || []).map((r) => r.toUpperCase()))];
+      const allRefs  = [...cveRefs, ...osvdbRefs];
+
+      const description = allRefs.length
+        ? `${noSee} [${allRefs.join(", ")}]`.slice(0, 500)
+        : noSee.slice(0, 500);
+
+      const lower    = raw.toLowerCase();
+      const severity = HIGH_KEYWORDS.some((k)   => lower.includes(k)) ? "High"
+                     : MEDIUM_KEYWORDS.some((k) => lower.includes(k)) ? "Medium"
+                     : "Low";
+
+      return {
+        source_ip:      "nikto",
+        destination_ip: target,
+        activity_type:  `Nikto: ${categorizeNiktoFinding(raw)}`,
+        severity,
+        description,
+      };
+    });
+}
+
 // ── Exported handlers ─────────────────────────────────────────────────────────
 
 exports.runTool = async (req, res) => {
@@ -193,6 +265,20 @@ exports.runTool = async (req, res) => {
 
       await Promise.all(allAlerts.map(insertAlert));
       return res.json({ success: true, message: "Metasploit scan completed", data: allAlerts });
+    }
+
+    // ── Nikto ───────────────────────────────────────────────────────────────
+    if (normalizedTool === "nikto") {
+      // Nikto exits with code 1 even on success — capture output regardless
+      const output = await runCommand("nikto", ["-h", normalizedTarget, "-nointeractive"], 300_000, true);
+      const alerts = parseNiktoOutput(output, normalizedTarget);
+
+      if (!alerts.length) {
+        return res.json({ success: true, message: "Nikto scan completed — no findings", data: [] });
+      }
+
+      await Promise.all(alerts.map(insertAlert));
+      return res.json({ success: true, message: `Nikto scan completed — ${alerts.length} finding(s)`, data: alerts });
     }
   } catch (err) {
     console.error(`[${normalizedTool}] Error:`, err.message);

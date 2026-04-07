@@ -228,7 +228,36 @@ export default function VulnerabilitiesTable({ vulnerabilities, onRefresh, loadi
                             : "Unknown"}
                         </span>
                       </td>
-                      <td className="td-desc" title={vuln.description}>{vuln.description || "—"}</td>
+                      <td className="td-desc" title={vuln.description}>
+                        {vuln.description ? (() => {
+                          const tagMatch = vuln.description.match(/\[([^\]]+)\]$/);
+                          const tags     = tagMatch ? tagMatch[1].split(", ") : [];
+                          const text     = tagMatch
+                            ? vuln.description.slice(0, -tagMatch[0].length).trim()
+                            : vuln.description;
+                          const short = text.length > 80 ? text.slice(0, 80) + "…" : text;
+                          return (
+                            <span>
+                              {short}
+                              {tags.map((tag) => (
+                                <span key={tag} style={{
+                                  marginLeft: "0.4rem",
+                                  fontSize: "0.7rem",
+                                  fontWeight: 600,
+                                  padding: "1px 6px",
+                                  borderRadius: "4px",
+                                  background: tag.startsWith("CVE") ? "rgba(248,113,113,0.15)" : "rgba(251,191,36,0.15)",
+                                  color: tag.startsWith("CVE") ? "#f87171" : "#fbbf24",
+                                  border: `1px solid ${tag.startsWith("CVE") ? "rgba(248,113,113,0.3)" : "rgba(251,191,36,0.3)"}`,
+                                  whiteSpace: "nowrap",
+                                }}>
+                                  {tag}
+                                </span>
+                              ))}
+                            </span>
+                          );
+                        })() : "—"}
+                      </td>
                       <td className="td-time">{formatDate(vuln.scan_date)}</td>
                       <td>
                         <button

@@ -89,6 +89,7 @@ export default function ToolRunner({ onToolRun }) {
             <option value="">Select…</option>
             <option value="nmap">Nmap</option>
             <option value="metasploit">Metasploit</option>
+            <option value="nikto">Nikto</option>
           </select>
         </div>
 

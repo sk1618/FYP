@@ -8,7 +8,7 @@ A full-stack cybersecurity monitoring dashboard built as a Final Year Project. I
 
 - **Live Alerts Table** — view, filter, search, and delete network alerts with severity badges
 - **Vulnerabilities Table** — track detected vulnerabilities with per-row delete and filtering
-- **Tool Runner** — run Nmap or Metasploit scans against a target IP directly from the dashboard
+- **Tool Runner** — run Nmap, Metasploit, or Nikto scans against a target IP directly from the dashboard
 - **AI PCAP Analyzer** — upload a `.pcap` file and get a Random Forest ML classification of attack traffic
 - **Summary Cards** — at-a-glance counts for total alerts, high/medium/low severity, and vulnerabilities
 - **Auto-Refresh** — data refreshes every 30 seconds with a live countdown; can be toggled on/off
@@ -25,7 +25,7 @@ A full-stack cybersecurity monitoring dashboard built as a Final Year Project. I
 | Backend  | Node.js, Express 5, mysql2/promise  |
 | Database | MySQL 8.0                           |
 | ML Model | Python 3, scikit-learn (Random Forest) |
-| Tools    | Nmap, Metasploit (msfconsole)       |
+| Tools    | Nmap, Metasploit (msfconsole), Nikto |
 
 ---
 
@@ -76,14 +76,14 @@ FYP-Overhaul/
 - Node.js 18+
 - MySQL 8.0 running and accessible
 - Python 3 with `scikit-learn`, `scapy`, `pandas` installed
-- Nmap and Metasploit installed (on the machine running the backend)
+- Nmap, Metasploit, and Nikto installed (pre-installed on Kali Linux)
 
 ### 1. Clone the repo
 
 ```bash
 git clone https://github.com/sk1618/FYP.git
 cd FYP
-git checkout Amine-Branch
+git checkout Main-Branch
 ```
 
 ### 2. Backend
@@ -161,6 +161,6 @@ If you're running the backend on a Kali Linux VM (e.g. UTM on Mac):
 | DELETE | `/api/alerts`             | Delete all alerts              |
 | GET    | `/api/vulnerabilities`    | Fetch all vulnerabilities      |
 | DELETE | `/api/vulnerabilities/:id`| Delete a single vulnerability  |
-| POST   | `/api/tools/run`          | Run Nmap or Metasploit scan    |
+| POST   | `/api/tools/run`          | Run Nmap, Metasploit, or Nikto scan |
 | GET    | `/api/ai`                 | AI endpoint health check       |
 | POST   | `/api/ai/analyze-pcap`    | Analyse a PCAP file with ML    |
