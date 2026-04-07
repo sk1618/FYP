@@ -1,10 +1,10 @@
 #!/bin/bash
-# sync.sh — pushes latest backend + frontend source to the Kali VM.
-# Run this from the project root after any code change:
+# sync.sh — pushes latest source to the Kali VM.
+# Run this from the Final Year Project root:
 #   ./sync.sh
 
 VM="amine@192.168.64.2"
-PROJECT="/Users/aminwehbe/Desktop/FYP-Overhaul"
+PROJECT="/Users/aminwehbe/Desktop/Final Year Project"
 
 echo "Syncing backend..."
 rsync -av --exclude='node_modules' --exclude='.env' \
@@ -14,5 +14,7 @@ echo "Syncing frontend..."
 rsync -av --exclude='node_modules' --exclude='.env' \
   "$PROJECT/fyp-frontend/" "$VM:~/fyp-frontend/"
 
-echo "Done. Restart the backend (node src/server.js) to pick up changes."
-echo "Refresh the browser for frontend changes."
+echo ""
+echo "Done."
+echo "  cd ~/fyp-backend && npm run dev"
+echo "  cd ~/fyp-frontend && npm run dev"
