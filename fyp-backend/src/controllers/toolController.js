@@ -233,14 +233,23 @@ function parseLynisOutput(output, target) {
     const clean = line.replace(/\x1b\[[0-9;]*m/g, "").trim();
     if (!clean) continue;
 
-    // Enter Results section
-    if (clean.includes("Results") && clean.includes("Lynis")) { inResults = true; continue; }
+    // Enter Results section — matches any of:
+    //   "Lynis security scan details"  (older versions)
+    //   "== Lynis security scan details =="
+    //   Any line with "Warnings (" or "Suggestions (" also implicitly means we're in results
+    if (
+      /lynis security scan details/i.test(clean) ||
+      (clean.includes("Results") && clean.includes("Lynis"))
+    ) { inResults = true; continue; }
+
+    // Warnings/Suggestions headers also trigger inResults in case header was missed
+    if (/^Warnings\s*\(/i.test(clean))    { inResults = true; inWarnings = true;  inSuggestions = false; continue; }
+    if (/^Suggestions\s*\(/i.test(clean)) { inResults = true; inSuggestions = true; inWarnings = false;  continue; }
+
     if (!inResults) continue;
 
-    // Detect subsections
-    if (/^Warnings\s*\(/i.test(clean))    { inWarnings = true;  inSuggestions = false; continue; }
-    if (/^Suggestions\s*\(/i.test(clean)) { inSuggestions = true; inWarnings = false;  continue; }
-    if (/^Follow-up:/i.test(clean) || /^Lynis security scan details/i.test(clean)) {
+    // Detect subsections (after inResults check, for lines mid-scan)
+    if (/^Follow-up:/i.test(clean)) {
       inWarnings = false; inSuggestions = false;
     }
 
