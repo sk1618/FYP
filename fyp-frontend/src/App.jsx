@@ -125,7 +125,7 @@ export default function App() {
       <main className="main">
         {error && <div className="error-banner">⚠ {error}</div>}
 
-        <SummaryCards counts={counts} />
+        <SummaryCards counts={counts} vulnerabilities={vulnerabilities} />
 
         <SeverityChart alerts={alerts} />
 
