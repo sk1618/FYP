@@ -8,20 +8,20 @@ echo ""
 
 # ── 1. Node.js 20 ──────────────────────────────────────────────────────────────
 if ! command -v node &>/dev/null || [[ $(node -v | cut -d. -f1 | tr -d 'v') -lt 18 ]]; then
-  echo "[1/6] Installing Node.js 20..."
+  echo "[1/7] Installing Node.js 20..."
   curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash - > /dev/null 2>&1
   sudo apt install -y nodejs > /dev/null 2>&1
   echo "      Node.js $(node -v) installed."
 else
-  echo "[1/6] Node.js $(node -v) already installed. Skipping."
+  echo "[1/7] Node.js $(node -v) already installed. Skipping."
 fi
 
 # ── 2. MySQL ───────────────────────────────────────────────────────────────────
 if ! command -v mysql &>/dev/null; then
-  echo "[2/6] Installing MySQL..."
+  echo "[2/7] Installing MySQL..."
   sudo apt install -y mysql-server > /dev/null 2>&1
 else
-  echo "[2/6] MySQL already installed. Skipping."
+  echo "[2/7] MySQL already installed. Skipping."
 fi
 
 echo "      Starting MySQL service..."
@@ -29,13 +29,13 @@ sudo systemctl start mysql
 sudo systemctl enable mysql > /dev/null 2>&1
 
 # ── 3. Python dependencies ─────────────────────────────────────────────────────
-echo "[3/6] Installing Python dependencies..."
+echo "[3/7] Installing Python dependencies..."
 pip3 install --quiet scikit-learn scapy pandas matplotlib joblib 2>/dev/null || \
   pip3 install --quiet --break-system-packages scikit-learn scapy pandas matplotlib joblib
 echo "      Python dependencies installed."
 
 # ── 4. Create DB + user ────────────────────────────────────────────────────────
-echo "[4/6] Setting up MySQL database..."
+echo "[4/7] Setting up MySQL database..."
 
 DB_NAME="fyp_dashboard"
 DB_USER="fyp_user"
@@ -54,7 +54,7 @@ sudo mysql -u root "${DB_NAME}" < schema.sql
 echo "      Database '${DB_NAME}' ready."
 
 # ── 5. Create .env files ───────────────────────────────────────────────────────
-echo "[5/6] Creating .env files..."
+echo "[5/7] Creating .env files..."
 
 cat > fyp-backend/.env << EOF
 DB_HOST=127.0.0.1
