@@ -31,11 +31,13 @@ export default function ToolRunner({ onToolRun }) {
   const [history, setHistory] = useState([]);
   const { toast, show }       = useToast();
 
+  const isLynis = tool === "lynis";
+
   const handleRun = async () => {
     const trimTool   = tool.trim();
-    const trimTarget = target.trim();
+    const trimTarget = isLynis ? "localhost" : target.trim();
 
-    if (!trimTool || !trimTarget) {
+    if (!trimTool || (!isLynis && !trimTarget)) {
       show("Select a tool and enter a target IP.", "error");
       return;
     }
@@ -104,12 +106,18 @@ export default function ToolRunner({ onToolRun }) {
           <input
             className="form-input"
             type="text"
-            placeholder={tool === "sqlmap" ? "e.g. 192.168.1.1 or http://site.com" : "e.g. 192.168.1.1"}
-            value={target}
-            onChange={(e) => setTarget(e.target.value)}
+            placeholder={isLynis ? "Not required for Lynis" : tool === "sqlmap" ? "e.g. 192.168.1.1 or http://site.com" : "e.g. 192.168.1.1"}
+            value={isLynis ? "" : target}
+            onChange={(e) => !isLynis && setTarget(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleRun()}
-            disabled={loading}
+            disabled={loading || isLynis}
+            style={isLynis ? { opacity: 0.35, cursor: "not-allowed" } : undefined}
           />
+          {isLynis && (
+            <span style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginTop: "0.3rem", display: "block" }}>
+              Lynis audits this machine only — no remote target
+            </span>
+          )}
         </div>
 
         {/* Run button — aligned to bottom of the flex row */}
