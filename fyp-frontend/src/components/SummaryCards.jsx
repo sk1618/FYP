@@ -11,9 +11,7 @@ const ALERT_CARDS = [
 ];
 
 const VULN_CARDS = [
-  { key: "vulnsHigh",   label: "High Vulns",   variant: "high" },
-  { key: "vulnsMedium", label: "Medium Vulns",  variant: "medium" },
-  { key: "vulnsLow",    label: "Low Vulns",     variant: "low" },
+  { key: "vulnsHigh", label: "High Vulns", variant: "high" },
 ];
 
 function StatCard({ value, label, variant }) {
