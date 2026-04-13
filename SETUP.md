@@ -29,7 +29,9 @@ cd fyp-frontend && npm run dev
 
 Dashboard → `http://localhost:5173`
 
-The setup script handles everything: Node.js, MySQL, Python dependencies, database creation, schema, `.env` files, and `npm install`.
+The setup script handles everything: Node.js, MySQL, Python dependencies, database creation, schema, `.env` files, `npm install`, and the Lynis sudoers entry.
+
+> **Note:** The script adds a passwordless sudo rule for `lynis` under the username `amine`. If your Kali user is different, edit line `echo "amine ALL=..."` in `setup.sh` before running.
 
 ---
 
@@ -46,6 +48,8 @@ The `setup.sh` script is Linux-only. You'll need to do the following manually.
 | Python 3 | Pre-installed or `brew install python` | [python.org](https://python.org) |
 | Nmap | `brew install nmap` | [nmap.org/download](https://nmap.org/download.html) |
 | Metasploit | `brew install metasploit` | Not recommended on Windows |
+| Nikto | `brew install nikto` | Not supported on Windows |
+| Lynis | Linux-only | Linux-only |
 
 ### 2. Python dependencies
 
@@ -98,6 +102,6 @@ cd fyp-frontend && npm install && npm run dev
 
 | Issue | Detail |
 |---|---|
-| **Tool Runner** | Nmap works on Mac/Windows. Metasploit is unreliable on Windows — that feature may not work. |
+| **Tool Runner** | Nmap and Nikto work on Mac. Metasploit is unreliable on Windows. Lynis is Linux-only. |
 | **Python command** | On Windows, `python3` may need to be changed to `python` in `fyp-backend/src/routes/ai.js` |
 | **Nmap path** | If Nmap isn't on your PATH, update the command in `fyp-backend/src/utils/toolRunner.js` |

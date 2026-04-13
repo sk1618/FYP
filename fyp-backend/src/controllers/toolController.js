@@ -6,7 +6,7 @@ const { runCommand }             = require("../utils/toolRunner");
 const { maybeCreateVulnerability } = require("../utils/vuln");
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const ALLOWED_TOOLS = new Set(["nmap", "metasploit", "nikto"]);
+const ALLOWED_TOOLS = new Set(["nmap", "metasploit", "nikto", "lynis"]);
 
 // Accepts IPv4 addresses and simple hostnames only — no shell metacharacters.
 const SAFE_TARGET = /^[a-zA-Z0-9.\-]+$/;
@@ -207,6 +207,87 @@ function parseNiktoOutput(output, target) {
     });
 }
 
+/**
+ * Converts raw Lynis stdout into alert objects.
+ * Lynis Results section format:
+ *   Warnings section  → lines starting with "!"
+ *   Suggestions section → lines starting with "*"
+ *   Hardening index : 67
+ */
+function parseLynisOutput(output, target) {
+  const alerts = [];
+  let inResults     = false;
+  let inWarnings    = false;
+  let inSuggestions = false;
+
+  for (const line of output.split("\n")) {
+    const clean = line.replace(/\x1b\[[0-9;]*m/g, "").trim();
+    if (!clean) continue;
+
+    // Enter Results section
+    if (clean.includes("Results") && clean.includes("Lynis")) { inResults = true; continue; }
+    if (!inResults) continue;
+
+    // Detect subsections
+    if (/^Warnings\s*\(/i.test(clean))    { inWarnings = true;  inSuggestions = false; continue; }
+    if (/^Suggestions\s*\(/i.test(clean)) { inSuggestions = true; inWarnings = false;  continue; }
+    if (/^Follow-up:/i.test(clean) || /^Lynis security scan details/i.test(clean)) {
+      inWarnings = false; inSuggestions = false;
+    }
+
+    // Hardening index
+    const hiMatch = clean.match(/Hardening index\s*:\s*(\d+)/i);
+    if (hiMatch) {
+      alerts.push({
+        source_ip:      "lynis",
+        destination_ip: target,
+        activity_type:  "Lynis: Hardening Score",
+        severity:       "Low",
+        description:    `System hardening index: ${hiMatch[1]} / 100`,
+      });
+      continue;
+    }
+
+    // Warnings: lines starting with "!" — skip reference lines
+    if (inWarnings && clean.startsWith("!")) {
+      const text = clean.replace(/^!\s*/, "").trim();
+      if (/^(Website|Article|See also):/i.test(text)) continue;
+      alerts.push({
+        source_ip:      "lynis",
+        destination_ip: target,
+        activity_type:  "Lynis: Warning",
+        severity:       "High",
+        description:    text.slice(0, 500),
+      });
+      continue;
+    }
+
+    // Suggestions: lines starting with "*" — skip reference lines
+    if (inSuggestions && clean.startsWith("*")) {
+      const text  = clean.replace(/^\*\s*/, "").trim();
+      if (/^(Website|Article|See also):/i.test(text)) continue;
+
+      const lower = text.toLowerCase();
+      const severity =
+        /ssh|firewall|kernel|password|root|exploit|cve|authenticat|sudo|privilege|suid|permission/.test(lower)
+          ? "High"
+          : /outdated|expired|disable|restrict|encrypt|audit|log|fail2ban|pam/.test(lower)
+            ? "Medium"
+            : "Low";
+
+      alerts.push({
+        source_ip:      "lynis",
+        destination_ip: target,
+        activity_type:  "Lynis: Suggestion",
+        severity,
+        description:    text.slice(0, 500),
+      });
+    }
+  }
+
+  return alerts;
+}
+
 // ── Exported handlers ─────────────────────────────────────────────────────────
 
 exports.runTool = async (req, res) => {
@@ -279,6 +360,43 @@ exports.runTool = async (req, res) => {
 
       await Promise.all(alerts.map(insertAlert));
       return res.json({ success: true, message: `Nikto scan completed — ${alerts.length} finding(s)`, data: alerts });
+    }
+
+    // ── Lynis ───────────────────────────────────────────────────────────────
+    if (normalizedTool === "lynis") {
+      const output = await runCommand(
+        "sudo", ["lynis", "audit", "system", "--no-colors", "--quick"],
+        300_000, true
+      );
+
+      // Deduplicate by description before inserting
+      const raw    = parseLynisOutput(output, normalizedTarget);
+      const seen   = new Set();
+      const alerts = raw.filter((a) => {
+        if (seen.has(a.description)) return false;
+        seen.add(a.description);
+        return true;
+      });
+
+      if (!alerts.length) {
+        return res.json({ success: true, message: "Lynis audit completed — no findings", data: [] });
+      }
+
+      // Insert alerts
+      await Promise.all(alerts.map(insertAlert));
+
+      // Directly create vulnerability records for High severity findings
+      // (maybeCreateVulnerability won't trigger on Lynis output as it lacks CVE keywords)
+      const highFindings = alerts.filter((a) => a.severity === "High");
+      for (const a of highFindings) {
+        await db.execute(
+          `INSERT INTO vulnerabilities (target_ip, vuln_name, severity, description, scan_date)
+           VALUES (?, ?, ?, ?, NOW())`,
+          [a.destination_ip, a.activity_type, a.severity, a.description]
+        );
+      }
+
+      return res.json({ success: true, message: `Lynis audit completed — ${alerts.length} finding(s)`, data: alerts });
     }
   } catch (err) {
     console.error(`[${normalizedTool}] Error:`, err.message);
