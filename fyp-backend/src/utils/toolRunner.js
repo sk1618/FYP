@@ -23,7 +23,10 @@ exports.runCommand = (cmd, args = [], timeout = 120_000, allowNonZero = false) =
     const timer = setTimeout(() => {
       timedOut = true;
       proc.kill("SIGKILL");
-      reject(new Error(`Command "${cmd}" timed out after ${timeout / 1000}s`));
+      // If the tool is allowed to exit non-zero, resolve with whatever was
+      // captured so far rather than discarding all output on timeout.
+      if (allowNonZero) resolve((stdout + "\n" + stderr).trim());
+      else reject(new Error(`Command "${cmd}" timed out after ${timeout / 1000}s`));
     }, timeout);
 
     proc.stdout.on("data", (chunk) => { stdout += chunk.toString(); });
@@ -39,7 +42,7 @@ exports.runCommand = (cmd, args = [], timeout = 120_000, allowNonZero = false) =
       clearTimeout(timer);
       if (timedOut) return;
       if (code !== 0 && !allowNonZero) return reject(new Error(stderr || `"${cmd}" exited with code ${code}`));
-      resolve(stdout || stderr);
+      resolve((stdout + "\n" + stderr).trim());
     });
   });
 };

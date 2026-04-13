@@ -67,7 +67,8 @@ export default function PcapAnalyzer() {
     <div className="panel">
       <div className="panel-title">🔬 AI PCAP Analyzer</div>
 
-      <div className="file-row">
+      {/* Row 1: file picker + analyze */}
+      <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
         <label className="file-label">
           📂 {file ? "Change .pcap file" : "Choose .pcap file"}
           <input type="file" accept=".pcap" onChange={handleFileChange} />
@@ -78,17 +79,7 @@ export default function PcapAnalyzer() {
             {file.name}
           </span>
         )}
-      </div>
 
-      <div
-        style={{
-          display: "flex",
-          gap: "0.75rem",
-          alignItems: "center",
-          flexWrap: "wrap",
-          marginTop: "0.9rem",
-        }}
-      >
         <button
           className="btn btn--primary"
           onClick={handleAnalyze}
@@ -96,7 +87,10 @@ export default function PcapAnalyzer() {
         >
           {loading ? "Analyzing..." : "Analyze"}
         </button>
+      </div>
 
+      {/* Row 2: live scan */}
+      <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", marginTop: "0.75rem" }}>
         <select
           value={duration}
           onChange={(e) => setDuration(Number(e.target.value))}
@@ -122,22 +116,19 @@ export default function PcapAnalyzer() {
           className="btn btn--primary"
           onClick={handleLiveScan}
           disabled={loading || liveLoading}
-          style={{
-            background: "linear-gradient(135deg, #7c3aed, #2563eb)",
-          }}
+          style={{ background: "linear-gradient(135deg, #7c3aed, #2563eb)" }}
         >
           {liveLoading ? "Live Scanning..." : "LiveScan"}
         </button>
-      </div>
 
-      <div
-        style={{
-          marginTop: "0.65rem",
-          fontSize: "0.9rem",
-          opacity: 0.8,
-        }}
-      >
-        LiveScan captures packets on the backend for a few seconds, then analyzes them with the AI model.
+        <span style={{
+          fontSize: "0.78rem",
+          color: "rgba(255,255,255,0.45)",
+          fontStyle: "italic",
+          letterSpacing: "0.01em",
+        }}>
+          Captures live packets on the backend, then classifies traffic with the AI model.
+        </span>
       </div>
 
       {error && (

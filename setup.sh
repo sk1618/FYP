@@ -73,7 +73,7 @@ echo "      .env files created."
 # ── 6. Lynis sudoers entry ─────────────────────────────────────────────────────
 echo "[6/7] Configuring Lynis sudo access..."
 CURRENT_USER=$(whoami)
-SUDOERS_LINE="${CURRENT_USER} ALL=(ALL) NOPASSWD: /usr/bin/lynis"
+SUDOERS_LINE="${CURRENT_USER} ALL=(ALL) NOPASSWD: /usr/sbin/lynis"
 SUDOERS_FILE="/etc/sudoers.d/lynis"
 if ! sudo grep -qF "$SUDOERS_LINE" "$SUDOERS_FILE" 2>/dev/null; then
   echo "$SUDOERS_LINE" | sudo tee "$SUDOERS_FILE" > /dev/null
@@ -93,7 +93,7 @@ echo "      Dependencies installed."
 echo ""
 echo "======================================="
 echo "  Setup complete!"
-echo "======================================"
+echo "======================================="
 echo ""
 echo "  Start the backend:"
 echo "    cd fyp-backend && npm run dev"

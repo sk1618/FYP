@@ -49,6 +49,8 @@ The `setup.sh` script is Linux-only. You'll need to do the following manually.
 | Nmap | `brew install nmap` | [nmap.org/download](https://nmap.org/download.html) |
 | Metasploit | `brew install metasploit` | Not recommended on Windows |
 | Nikto | `brew install nikto` | Not supported on Windows |
+| Hydra | `brew install hydra` | Not recommended on Windows |
+| SQLMap | `pip3 install sqlmap` | `pip install sqlmap` |
 | Lynis | Linux-only | Linux-only |
 
 ### 2. Python dependencies
@@ -102,6 +104,6 @@ cd fyp-frontend && npm install && npm run dev
 
 | Issue | Detail |
 |---|---|
-| **Tool Runner** | Nmap and Nikto work on Mac. Metasploit is unreliable on Windows. Lynis is Linux-only. |
+| **Tool Runner** | Nmap, Nikto, Hydra, and SQLMap work on Mac. Metasploit is unreliable on Windows. Lynis is Linux-only. |
 | **Python command** | On Windows, `python3` may need to be changed to `python` in `fyp-backend/src/routes/ai.js` |
 | **Nmap path** | If Nmap isn't on your PATH, update the command in `fyp-backend/src/utils/toolRunner.js` |

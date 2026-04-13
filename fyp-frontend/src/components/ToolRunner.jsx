@@ -91,16 +91,20 @@ export default function ToolRunner({ onToolRun }) {
             <option value="metasploit">Metasploit</option>
             <option value="nikto">Nikto</option>
             <option value="lynis">Lynis</option>
+            <option value="hydra">Hydra</option>
+            <option value="sqlmap">SQLMap</option>
           </select>
         </div>
 
         {/* Target IP */}
         <div className="form-group">
-          <label className="form-label">Target IP</label>
+          <label className="form-label">
+            {tool === "sqlmap" ? "Target IP / URL" : "Target IP"}
+          </label>
           <input
             className="form-input"
             type="text"
-            placeholder="e.g. 192.168.1.1"
+            placeholder={tool === "sqlmap" ? "e.g. 192.168.1.1 or http://site.com" : "e.g. 192.168.1.1"}
             value={target}
             onChange={(e) => setTarget(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleRun()}
