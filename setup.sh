@@ -70,15 +70,28 @@ EOF
 
 echo "      .env files created."
 
-# ── 6. npm install ─────────────────────────────────────────────────────────────
-echo "[6/6] Installing Node dependencies..."
+# ── 6. Lynis sudoers entry ─────────────────────────────────────────────────────
+echo "[6/7] Configuring Lynis sudo access..."
+CURRENT_USER=$(whoami)
+SUDOERS_LINE="${CURRENT_USER} ALL=(ALL) NOPASSWD: /usr/bin/lynis"
+SUDOERS_FILE="/etc/sudoers.d/lynis"
+if ! sudo grep -qF "$SUDOERS_LINE" "$SUDOERS_FILE" 2>/dev/null; then
+  echo "$SUDOERS_LINE" | sudo tee "$SUDOERS_FILE" > /dev/null
+  sudo chmod 440 "$SUDOERS_FILE"
+  echo "      Lynis sudoers entry added for user '${CURRENT_USER}'."
+else
+  echo "      Lynis sudoers entry already present. Skipping."
+fi
+
+# ── 7. npm install ─────────────────────────────────────────────────────────────
+echo "[7/7] Installing Node dependencies..."
 (cd fyp-backend && npm install --silent)
 (cd fyp-frontend && npm install --silent)
 echo "      Dependencies installed."
 
 # ── Done ───────────────────────────────────────────────────────────────────────
 echo ""
-echo "======================================"
+echo "======================================="
 echo "  Setup complete!"
 echo "======================================"
 echo ""

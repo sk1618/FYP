@@ -4,7 +4,7 @@ import pandas as pd
 import joblib
 import json
 import matplotlib
-matplotlib.use("Agg")  # Non-interactive backend — required for headless servers (no display needed)
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import sys
 import os
@@ -47,6 +47,29 @@ for pkt in packets:
 # --- Create DataFrame ---
 df = pd.DataFrame(data, columns=["src_ip", "dst_ip", "protocol", "tcp_flags", "length"])
 
+# --- If no IP packets were found ---
+if df.empty:
+    output = {
+        "report": [],
+        "summary": {},
+        "report_file": "attack_report.json",
+        "chart_file": "attack_summary.png",
+        "message": "No valid IP packets found in the capture."
+    }
+
+    with open(os.path.join(BASE_DIR, "attack_report.json"), "w") as f:
+        json.dump([], f, indent=4)
+
+    plt.figure(figsize=(6, 4))
+    plt.text(0.5, 0.5, "No attacks detected", ha="center", va="center", fontsize=14)
+    plt.axis("off")
+    plt.tight_layout()
+    plt.savefig(os.path.join(BASE_DIR, "attack_summary.png"))
+    plt.close()
+
+    print(json.dumps(output))
+    sys.exit(0)
+
 # --- Step 1: Assign attack type based on raw protocol and tcp_flags (before encoding) ---
 def get_attack_type_raw(row):
     if row["protocol"] == "TCP":
@@ -63,6 +86,18 @@ def get_attack_type_raw(row):
             return "ACK Flood"
         elif flag == "U":
             return "URG Flood"
+        elif "S" in flag:
+            return "SYN Flood"
+        elif "F" in flag:
+            return "FIN Scan"
+        elif "R" in flag:
+            return "RST Scan"
+        elif "P" in flag:
+            return "PSH Flood"
+        elif "A" in flag:
+            return "ACK Flood"
+        elif "U" in flag:
+            return "URG Flood"
         else:
             return "Unknown TCP Attack"
     elif row["protocol"] == "ICMP":
@@ -72,9 +107,25 @@ def get_attack_type_raw(row):
 
 df["attack_type"] = df.apply(get_attack_type_raw, axis=1)
 
-# --- Step 2: Encode categorical features for model ---
-df["protocol"] = le_proto.transform(df["protocol"])
-df["tcp_flags"] = le_flags.transform(df["tcp_flags"].astype(str))
+# --- Safe encoder helper ---
+def safe_transform(value, encoder, default_value):
+    value = str(value)
+
+    # If the value exists in the encoder, use it directly
+    if value in encoder.classes_:
+        return encoder.transform([value])[0]
+
+    # If the requested default exists, use it
+    if default_value in encoder.classes_:
+        return encoder.transform([default_value])[0]
+
+    # Otherwise fall back to the first known class in the encoder
+    fallback = str(encoder.classes_[0])
+    return encoder.transform([fallback])[0]
+
+# --- Step 2: Encode categorical features safely for model ---
+df["protocol"] = df["protocol"].apply(lambda x: safe_transform(x, le_proto, "OTHER"))
+df["tcp_flags"] = df["tcp_flags"].apply(lambda x: safe_transform(x, le_flags, "NONE"))
 
 # --- Step 3: Predict attacks using the trained model ---
 df["prediction"] = model.predict(df[["protocol", "tcp_flags", "length"]])
@@ -90,14 +141,22 @@ with open(os.path.join(BASE_DIR, "attack_report.json"), "w") as f:
 # --- Step 6: Summary statistics ---
 summary = attacks["attack_type"].value_counts()
 
-# --- Step 7: Visualize attacks ---
-summary.plot(kind="bar", color="skyblue")
-plt.title("Attack Counts by Type")
-plt.xlabel("Attack Type")
-plt.ylabel("Number of Packets")
-plt.xticks(rotation=45)
+# --- Step 7: Visualize attacks safely ---
+plt.figure(figsize=(8, 5))
+
+if summary.empty:
+    plt.text(0.5, 0.5, "No attacks detected", ha="center", va="center", fontsize=14)
+    plt.axis("off")
+else:
+    summary.plot(kind="bar", color="skyblue")
+    plt.title("Attack Counts by Type")
+    plt.xlabel("Attack Type")
+    plt.ylabel("Number of Packets")
+    plt.xticks(rotation=45)
+
 plt.tight_layout()
 plt.savefig(os.path.join(BASE_DIR, "attack_summary.png"))
+plt.close()
 
 # --- Step 8: Return clean JSON output for backend ---
 output = {
