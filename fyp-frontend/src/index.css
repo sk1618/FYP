@@ -239,13 +239,36 @@ body {
   background: var(--border);
 }
 
-/* ── Summary cards grid ──────────────────────────────────────────── */
-.cards-group { margin-bottom: 2.5rem; }
+/* ── Summary layout ──────────────────────────────────────────────── */
+.summary-row {
+  display:   grid;
+  grid-template-columns: 3fr 2fr;
+  gap:       1.25rem;
+  margin-bottom: 2.5rem;
+  align-items: stretch;
+}
+
+.summary-col {
+  display:        flex;
+  flex-direction: column;
+}
+
+.summary-col .cards-grid {
+  flex: 1;
+}
+
+.summary-col .vuln-summary-panel {
+  flex: 1;
+}
 
 .cards-grid {
   display:               grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap:                   1rem;
+}
+
+.stat-card {
+  height: 100%;
 }
 
 .stat-card {

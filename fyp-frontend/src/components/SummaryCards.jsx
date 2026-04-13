@@ -76,9 +76,9 @@ function VulnSummary({ counts, vulnerabilities = [] }) {
 
 export default function SummaryCards({ counts = {}, vulnerabilities = [] }) {
   return (
-    <>
+    <div className="summary-row">
       {/* Alerts */}
-      <div className="cards-group">
+      <div className="summary-col">
         <div className="section-label">Alerts</div>
         <div className="cards-grid">
           {ALERT_CARDS.map(({ key, label, variant }) => (
@@ -88,10 +88,10 @@ export default function SummaryCards({ counts = {}, vulnerabilities = [] }) {
       </div>
 
       {/* Vulnerabilities */}
-      <div className="cards-group">
+      <div className="summary-col">
         <div className="section-label">Vulnerabilities</div>
         <VulnSummary counts={counts} vulnerabilities={vulnerabilities} />
       </div>
-    </>
+    </div>
   );
 }
