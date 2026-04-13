@@ -4,7 +4,7 @@
 #   ./sync.sh
 
 VM="amine@192.168.64.2"
-PROJECT="/Users/aminwehbe/Desktop/Final Year Project"
+PROJECT="/Users/aminwehbe/Desktop/University/Final Year Project"
 
 echo "Syncing backend..."
 rsync -av --exclude='node_modules' --exclude='.env' \
