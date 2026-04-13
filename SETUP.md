@@ -6,32 +6,42 @@
 - Git installed
 - Internet connection
 
-### Steps
+### First-time setup
 
 ```bash
 git clone https://github.com/sk1618/FYP.git
 cd FYP
-git checkout Amine-Branch
 chmod +x setup.sh && ./setup.sh
 ```
 
-Then open two terminals:
+The setup script handles everything: Node.js, MySQL, Python dependencies, database creation, schema, `.env` files, `npm install`, and the Lynis sudoers entry.
+
+> **Note:** The script adds a passwordless sudo rule for `lynis` using your current username. No manual changes needed.
+
+### Pulling the latest version (already set up)
+
+```bash
+cd FYP
+git pull origin Main-Branch
+cd fyp-backend && npm install
+cd ../fyp-frontend && npm install
+```
+
+### Running the dashboard
+
+Open two terminals:
 
 **Terminal 1 — Backend:**
 ```bash
-cd fyp-backend && npm run dev
+cd FYP/fyp-backend && npm run dev
 ```
 
 **Terminal 2 — Frontend:**
 ```bash
-cd fyp-frontend && npm run dev
+cd FYP/fyp-frontend && npm run dev
 ```
 
 Dashboard → `http://localhost:5173`
-
-The setup script handles everything: Node.js, MySQL, Python dependencies, database creation, schema, `.env` files, `npm install`, and the Lynis sudoers entry.
-
-> **Note:** The script adds a passwordless sudo rule for `lynis` under the username `amine`. If your Kali user is different, edit line `echo "amine ALL=..."` in `setup.sh` before running.
 
 ---
 
