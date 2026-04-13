@@ -23,8 +23,8 @@ The setup script handles everything: Node.js, MySQL, Python dependencies, databa
 ```bash
 cd FYP
 git pull origin Main-Branch
-cd fyp-backend && npm install
-cd ../fyp-frontend && npm install
+(cd fyp-backend && npm install)
+(cd fyp-frontend && npm install)
 ```
 
 ### Running the dashboard

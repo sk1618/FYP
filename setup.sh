@@ -1,6 +1,13 @@
 #!/bin/bash
 set -e
 
+# ── Guard: must be run from repo root ─────────────────────────────────────────
+if [[ ! -f "schema.sql" || ! -d "fyp-backend" || ! -d "fyp-frontend" ]]; then
+  echo "Error: Run this script from the root of the FYP repo."
+  echo "  cd FYP && chmod +x setup.sh && ./setup.sh"
+  exit 1
+fi
+
 echo "======================================"
 echo "  FYP Dashboard — Setup Script"
 echo "======================================"
@@ -28,14 +35,21 @@ echo "      Starting MySQL service..."
 sudo systemctl start mysql
 sudo systemctl enable mysql > /dev/null 2>&1
 
-# ── 3. Python dependencies ─────────────────────────────────────────────────────
-echo "[3/7] Installing Python dependencies..."
+# ── 3. Security tools ──────────────────────────────────────────────────────────
+echo "[3/8] Installing security tools..."
+sudo apt install -y nmap nikto hydra > /dev/null 2>&1
+pip3 install --quiet sqlmap 2>/dev/null || \
+  pip3 install --quiet --break-system-packages sqlmap
+echo "      nmap, nikto, hydra, sqlmap installed."
+
+# ── 4. Python dependencies ─────────────────────────────────────────────────────
+echo "[4/8] Installing Python dependencies..."
 pip3 install --quiet scikit-learn scapy pandas matplotlib joblib 2>/dev/null || \
   pip3 install --quiet --break-system-packages scikit-learn scapy pandas matplotlib joblib
 echo "      Python dependencies installed."
 
-# ── 4. Create DB + user ────────────────────────────────────────────────────────
-echo "[4/7] Setting up MySQL database..."
+# ── 5. Create DB + user ────────────────────────────────────────────────────────
+echo "[5/8] Setting up MySQL database..."
 
 DB_NAME="fyp_dashboard"
 DB_USER="fyp_user"
@@ -53,8 +67,8 @@ sudo mysql -u root "${DB_NAME}" < schema.sql
 
 echo "      Database '${DB_NAME}' ready."
 
-# ── 5. Create .env files ───────────────────────────────────────────────────────
-echo "[5/7] Creating .env files..."
+# ── 6. Create .env files ───────────────────────────────────────────────────────
+echo "[6/8] Creating .env files..."
 
 cat > fyp-backend/.env << EOF
 DB_HOST=127.0.0.1
@@ -70,8 +84,8 @@ EOF
 
 echo "      .env files created."
 
-# ── 6. Lynis sudoers entry ─────────────────────────────────────────────────────
-echo "[6/7] Configuring Lynis sudo access..."
+# ── 7. Lynis sudoers entry ─────────────────────────────────────────────────────
+echo "[7/8] Configuring Lynis sudo access..."
 CURRENT_USER=$(whoami)
 SUDOERS_LINE="${CURRENT_USER} ALL=(ALL) NOPASSWD: /usr/sbin/lynis"
 SUDOERS_FILE="/etc/sudoers.d/lynis"
@@ -83,8 +97,8 @@ else
   echo "      Lynis sudoers entry already present. Skipping."
 fi
 
-# ── 7. npm install ─────────────────────────────────────────────────────────────
-echo "[7/7] Installing Node dependencies..."
+# ── 8. npm install ─────────────────────────────────────────────────────────────
+echo "[8/8] Installing Node dependencies..."
 (cd fyp-backend && npm install --silent)
 (cd fyp-frontend && npm install --silent)
 echo "      Dependencies installed."
