@@ -113,11 +113,6 @@ export default function ToolRunner({ onToolRun }) {
             disabled={loading || isLynis}
             style={isLynis ? { opacity: 0.35, cursor: "not-allowed" } : undefined}
           />
-          {isLynis && (
-            <span style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginTop: "0.3rem", display: "block" }}>
-              Lynis audits this machine only — no remote target
-            </span>
-          )}
         </div>
 
         {/* Run button — aligned to bottom of the flex row */}
@@ -126,6 +121,19 @@ export default function ToolRunner({ onToolRun }) {
             {loading ? <><span className="spinner" /> Running…</> : "▶ Run"}
           </button>
         </div>
+
+        {isLynis && (
+          <span style={{
+            fontSize: "0.78rem",
+            color: "rgba(255,255,255,0.45)",
+            fontStyle: "italic",
+            letterSpacing: "0.01em",
+            alignSelf: "flex-end",
+            paddingBottom: "0.5rem",
+          }}>
+            Lynis audits this machine only — no remote target
+          </span>
+        )}
       </div>
 
       {/* Toast */}
