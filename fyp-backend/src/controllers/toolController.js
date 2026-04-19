@@ -525,19 +525,9 @@ exports.runTool = async (req, res) => {
         return res.json({ success: true, message: "Lynis audit completed — no findings", data: [] });
       }
 
-      // Insert sequentially to avoid flooding the DB pool (skipVuln — Lynis handles it directly)
+      // Insert alerts only — Lynis audits the local machine, not a remote target,
+      // so its findings do not belong in the vulnerabilities table.
       for (const a of alerts) await insertAlert(a, true);
-
-      // Directly create vulnerability records for High severity findings
-      // (maybeCreateVulnerability won't trigger on Lynis output as it lacks CVE keywords)
-      const highFindings = alerts.filter((a) => a.severity === "High");
-      for (const a of highFindings) {
-        await db.execute(
-          `INSERT INTO vulnerabilities (target_ip, vuln_name, severity, description, scan_date)
-           VALUES (?, ?, ?, ?, NOW())`,
-          [a.destination_ip, a.activity_type, a.severity, a.description]
-        );
-      }
 
       return res.json({ success: true, message: `Lynis audit completed — ${alerts.length} finding(s)`, data: alerts });
     }
