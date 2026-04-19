@@ -487,7 +487,16 @@ exports.runTool = async (req, res) => {
         }
       }
 
-      await Promise.all(allAlerts.map(insertAlert));
+      // Insert alerts then directly create vuln records for High severity findings
+      for (const a of allAlerts) await insertAlert(a, true);
+      const msfVulns = allAlerts.filter((a) => a.severity === "High");
+      for (const a of msfVulns) {
+        await db.execute(
+          `INSERT INTO vulnerabilities (target_ip, vuln_name, severity, description, scan_date)
+           VALUES (?, ?, ?, ?, NOW())`,
+          [a.destination_ip, a.activity_type, a.severity, a.description]
+        );
+      }
       return res.json({ success: true, message: "Metasploit scan completed", data: allAlerts });
     }
 
@@ -501,7 +510,16 @@ exports.runTool = async (req, res) => {
         return res.json({ success: true, message: "Nikto scan completed — no findings", data: [] });
       }
 
-      await Promise.all(alerts.map(insertAlert));
+      // Insert alerts then directly create vuln records for High severity findings
+      for (const a of alerts) await insertAlert(a, true);
+      const niktoVulns = alerts.filter((a) => a.severity === "High");
+      for (const a of niktoVulns) {
+        await db.execute(
+          `INSERT INTO vulnerabilities (target_ip, vuln_name, severity, description, scan_date)
+           VALUES (?, ?, ?, ?, NOW())`,
+          [a.destination_ip, a.activity_type, a.severity, a.description]
+        );
+      }
       return res.json({ success: true, message: `Nikto scan completed — ${alerts.length} finding(s)`, data: alerts });
     }
 
