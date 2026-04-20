@@ -164,3 +164,130 @@ If you're running the backend on a Kali Linux VM (e.g. UTM on Mac):
 | POST   | `/api/tools/run`          | Run Nmap, Metasploit, Nikto, Lynis, Hydra, or SQLMap scan |
 | GET    | `/api/ai`                 | AI endpoint health check       |
 | POST   | `/api/ai/analyze-pcap`    | Analyse a PCAP file with ML    |
+
+# AI-Based Network Attack Detection
+
+## Overview
+
+This project includes an AI module that analyzes network traffic captured from `.pcap` files and detects potential attacks in real time.
+
+The system uses two machine learning models:
+
+- **Random Forest**
+- **Logistic Regression**
+
+These models are trained on extracted network features and used to classify traffic as malicious or normal.
+
+---
+
+##  How It Works
+
+### 1. Packet Capture
+
+During LiveScan, the system captures network packets using:
+
+- `tcpdump`
+
+The packets are saved temporarily as a `.pcap` file.
+
+### 2. Feature Extraction
+
+The Python script:
+
+- `fyp-backend/ai/analyze_ai.py`
+
+reads the `.pcap` file and extracts advanced features such as:
+
+- `packet_count`
+- `total_bytes`
+- `avg_pkt_len`
+- protocol distribution (`TCP` / `UDP` / `ICMP`)
+- TCP flags (`SYN`, `ACK`, `FIN`, `PSH`, `RST`)
+- ratios (`syn_ratio`, `ack_ratio`, etc.)
+- unique ports and IPs
+
+### 3. Attack Classification
+
+Each group of packets is analyzed and classified into attack types such as:
+
+- `SYN Flood`
+- `ACK Flood`
+- `PSH Flood`
+- `FIN Scan`
+- `Ping Flood`
+- `RST Scan`
+- `Suspicious Traffic`
+
+### 4. Machine Learning Prediction
+
+The extracted features are passed to both models:
+
+- **Random Forest**
+- **Logistic Regression**
+
+Each model:
+
+- predicts malicious traffic
+- detects attack groups
+- generates attack summaries
+
+### 5. Model Evaluation
+
+During training, the models are evaluated using:
+
+- **Accuracy**
+- **Precision**
+- **Recall**
+- **F1 Score**
+
+This allows comparison between the two models.
+
+---
+
+##  Live Detection Output
+
+The dashboard displays:
+
+- attack distribution chart
+- detected attack types
+- number of malicious events
+- comparison between models
+
+---
+
+##  How to Run the AI System
+
+### Step 1 — Install dependencies
+
+```bash
+cd fyp-backend
+npm install
+pip install scapy pandas scikit-learn matplotlib joblib
+```
+### Step 2 — Give `tcpdump` permissions
+
+```bash
+sudo setcap cap_net_raw,cap_net_admin=eip $(which tcpdump)
+```
+
+### Step 3 — Run the backend
+```bash
+npm run dev
+```
+
+### Step 4 — Run the frontend
+cd ../fyp-frontend
+npm install
+npm run dev
+
+### Step 5 — Train the AI models
+cd ../fyp-backend/ai
+```bash
+python3 train_model.py
+```
+This generates:
+- trained models
+- evaluation metrics
+
+
+
