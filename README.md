@@ -289,5 +289,5 @@ This generates:
 - trained models
 - evaluation metrics
 
-
+Authors: Amine Wehbe, Said Kanaan and Mounir Kaissi
 
